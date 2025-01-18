@@ -31,3 +31,23 @@ bool utils_path_exists(const char* path)
     return false; // The path does not exist
 }
 
+
+/* Method to check if a directory exists */
+bool utils_directory_exists(const char* path)
+{
+    struct stat stat_buf;
+
+    // Use stat to get information about the file or directory
+    if (stat(path, &stat_buf) == 0)
+    {
+        // Check if the path is a directory
+        if (S_ISDIR(stat_buf.st_mode))
+        {
+            return true;
+        }
+    }
+
+    // Return false if the directory doesn't exist or isn't a directory
+    return false;
+}
+
