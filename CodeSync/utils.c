@@ -112,7 +112,7 @@ char* utils_repo_path(const Repository* repo, const char* path, ...)
 
 
 
-/* Computes the path under repo's gitdir and creates missing directories */
+/* Computes the path under repo's codesync directory and creates missing directories */
 char* utils_repo_file(const Repository* repo, const char* path, const bool mkdir_flag)
 {
     const char* dir = utils_repo_dir(repo, path, mkdir_flag);
@@ -120,5 +120,49 @@ char* utils_repo_file(const Repository* repo, const char* path, const bool mkdir
     {
         return utils_repo_path(repo, path);
     }
+    return nullptr;
+}
+
+
+/* Computes the directory under repo's gitdir and creates missing directories */
+char* utils_repo_dir(const Repository* repo, const char* path, const bool mkdir_flag)
+{
+    char* full_path = utils_repo_path(repo, path);
+    if (full_path == NULL)
+    {
+        return nullptr;
+    }
+
+    struct stat stat_buf;
+    if (stat(full_path, &stat_buf) == 0)
+    {
+        if (S_ISDIR(stat_buf.st_mode))
+        {
+            return full_path;
+        }
+        free(full_path);
+        return nullptr;
+    }
+
+    if (mkdir_flag)
+    {
+        /* Cross-platform directory creation */
+        int result = -1;
+#ifdef _WIN32
+        result = _mkdir(full_path);  // Windows-specific directory creation
+#else
+        result = mkdir(full_path, 0755); // Unix-based directory creation
+#endif
+
+        if (result == 0 || errno == EEXIST)
+        {
+            return full_path;
+        }
+
+        free(full_path);
+        return nullptr;
+    }
+
+    free(full_path);
     return nullptr;
 }
