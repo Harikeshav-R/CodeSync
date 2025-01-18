@@ -77,3 +77,48 @@ char* utils_join_paths(const char* base, const char* path)
 
     return result;
 }
+
+
+
+/* Computes the path under repo's codesync directory */
+char* utils_repo_path(const Repository* repo, const char* path, ...)
+{
+    va_list args;
+    va_start(args, path);
+
+    char* full_path = strdup(repo->codesync_directory);
+    if (full_path == NULL)
+    {
+        va_end(args);
+        return nullptr;
+    }
+
+    char* next_path;
+    while ((next_path = va_arg(args, char *)) != NULL)
+    {
+        char* tmp = utils_join_paths(full_path, next_path);
+        free(full_path);
+        full_path = tmp;
+        if (full_path == NULL)
+        {
+            va_end(args);
+            return nullptr;
+        }
+    }
+
+    va_end(args);
+    return full_path;
+}
+
+
+
+/* Computes the path under repo's gitdir and creates missing directories */
+char* utils_repo_file(const Repository* repo, const char* path, const bool mkdir_flag)
+{
+    const char* dir = utils_repo_dir(repo, path, mkdir_flag);
+    if (dir != NULL)
+    {
+        return utils_repo_path(repo, path);
+    }
+    return nullptr;
+}
