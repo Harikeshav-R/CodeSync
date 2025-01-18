@@ -3,7 +3,7 @@ project(CodeSync C)
 
 set(CMAKE_C_STANDARD 23)
 
-add_executable(CodeSync main.c)
+add_executable(CodeSync main.c argparse.c argparse.h)
 
 # Specify the path to the libconfig headers and library
 set(LIBCONFIG_INCLUDE_DIR "/opt/homebrew/Cellar/libconfig/1.7.3/include")
