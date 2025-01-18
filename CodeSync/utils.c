@@ -79,7 +79,6 @@ char* utils_join_paths(const char* base, const char* path)
 }
 
 
-
 /* Computes the path under repo's codesync directory */
 char* utils_repo_path(const Repository* repo, const char* path, ...)
 {
@@ -109,7 +108,6 @@ char* utils_repo_path(const Repository* repo, const char* path, ...)
     va_end(args);
     return full_path;
 }
-
 
 
 /* Computes the path under repo's codesync directory and creates missing directories */
