@@ -51,3 +51,29 @@ bool utils_directory_exists(const char* path)
     return false;
 }
 
+
+/* Helper function to join repo.codesync_directory with additional paths */
+char* utils_join_paths(const char* base, const char* path)
+{
+    const size_t base_len = strlen(base);
+    const size_t path_len = strlen(path);
+    char* result = malloc(base_len + path_len + 2); // For separator and null terminator
+
+    if (result == NULL)
+    {
+        return nullptr;
+    }
+
+    strcpy(result, base);
+    if (base[base_len - 1] != FILE_SEPARATOR)
+    {
+        result[base_len] = FILE_SEPARATOR;
+        strcpy(result + base_len + 1, path);
+    }
+    else
+    {
+        strcpy(result + base_len, path);
+    }
+
+    return result;
+}
