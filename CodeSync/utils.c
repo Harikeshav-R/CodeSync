@@ -1,3 +1,5 @@
+#include "utils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,18 +8,13 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "utils.h"
 
-/* Determine file separator based on the platform */
-#ifdef _WIN32
-    #define FILE_SEPARATOR '\\'
-    #include <direct.h>  // For _mkdir in Windows
-#else
-#define FILE_SEPARATOR '/'
-#endif
-
-
-/* Function to check if a path exists (file or directory) */
+/**
+ * Check if a path exists (file or directory).
+ *
+ * @param path The path to check.
+ * @return True if the path exists, false otherwise.
+ */
 bool utils_path_exists(const char* path)
 {
     struct stat stat_buf;
@@ -32,7 +29,12 @@ bool utils_path_exists(const char* path)
 }
 
 
-/* Method to check if a directory exists */
+/**
+ * Check if a directory exists at the given path.
+ *
+ * @param path The directory path to check.
+ * @return True if the path is a directory, false otherwise.
+ */
 bool utils_directory_exists(const char* path)
 {
     struct stat stat_buf;
@@ -43,7 +45,7 @@ bool utils_directory_exists(const char* path)
         // Check if the path is a directory
         if (S_ISDIR(stat_buf.st_mode))
         {
-            return true;
+            return true; // The path is a directory
         }
     }
 
@@ -52,7 +54,13 @@ bool utils_directory_exists(const char* path)
 }
 
 
-/* Helper function to join repo.codesync_directory with additional paths */
+/**
+ * Join two paths into one. If the base path doesn't end with a separator, one will be added.
+ *
+ * @param base The base path.
+ * @param path The path to join to the base.
+ * @return A newly allocated string containing the full path, or NULL if memory allocation fails.
+ */
 char* utils_join_paths(const char* base, const char* path)
 {
     const size_t base_len = strlen(base);
@@ -61,106 +69,56 @@ char* utils_join_paths(const char* base, const char* path)
 
     if (result == NULL)
     {
-        return nullptr;
+        return nullptr; // Return nullptr if memory allocation fails
     }
 
-    strcpy(result, base);
+    strcpy(result, base); // Copy the base path
     if (base[base_len - 1] != FILE_SEPARATOR)
     {
-        result[base_len] = FILE_SEPARATOR;
-        strcpy(result + base_len + 1, path);
+        result[base_len] = FILE_SEPARATOR; // Add separator if not present
+        strcpy(result + base_len + 1, path); // Append the path
     }
     else
     {
-        strcpy(result + base_len, path);
+        strcpy(result + base_len, path); // Append the path directly if separator is present
     }
 
-    return result;
+    return result; // Return the combined path
 }
 
 
-/* Computes the path under repo's codesync directory */
-char* utils_repo_path(const Repository* repo, const char* path, ...)
+/**
+ * Build the full path under a repository directory using variable arguments.
+ *
+ * @param repository The repository structure.
+ * @param count The number of arguments following the repository.
+ * @param args The variable arguments containing path components.
+ * @return A newly allocated string containing the full path, or NULL if memory allocation fails.
+ */
+char* utils_repo_path(const Repository* repository, const int count, va_list args)
 {
-    va_list args;
-    va_start(args, path);
-
-    char* full_path = strdup(repo->codesync_directory);
-    if (full_path == NULL)
+    // Start with the base path (codesync directory)
+    char* full_path = strdup(repository->codesync_directory);
+    if (!full_path)
     {
-        va_end(args);
+        perror("strdup"); // Handle memory allocation error
         return nullptr;
     }
 
-    char* next_path;
-    while ((next_path = va_arg(args, char *)) != NULL)
+    // Iterate over the variable arguments to build the full path
+    for (int i = 0; i < count; i++)
     {
-        char* tmp = utils_join_paths(full_path, next_path);
-        free(full_path);
-        full_path = tmp;
-        if (full_path == NULL)
+        const char* component = va_arg(args, const char*);
+        char* temp_path = utils_join_paths(full_path, component);
+        if (!temp_path)
         {
-            va_end(args);
+            free(full_path); // Free memory if joining fails
             return nullptr;
         }
+
+        free(full_path); // Free the old path
+        full_path = temp_path; // Update the full path
     }
 
-    va_end(args);
-    return full_path;
-}
-
-
-/* Computes the path under repo's codesync directory and creates missing directories */
-char* utils_repo_file(const Repository* repo, const char* path, const bool mkdir_flag)
-{
-    const char* dir = utils_repo_dir(repo, path, mkdir_flag);
-    if (dir != NULL)
-    {
-        return utils_repo_path(repo, path);
-    }
-    return nullptr;
-}
-
-
-/* Computes the directory under repo's gitdir and creates missing directories */
-char* utils_repo_dir(const Repository* repo, const char* path, const bool mkdir_flag)
-{
-    char* full_path = utils_repo_path(repo, path);
-    if (full_path == NULL)
-    {
-        return nullptr;
-    }
-
-    struct stat stat_buf;
-    if (stat(full_path, &stat_buf) == 0)
-    {
-        if (S_ISDIR(stat_buf.st_mode))
-        {
-            return full_path;
-        }
-        free(full_path);
-        return nullptr;
-    }
-
-    if (mkdir_flag)
-    {
-        /* Cross-platform directory creation */
-        int result = -1;
-#ifdef _WIN32
-        result = _mkdir(full_path);  // Windows-specific directory creation
-#else
-        result = mkdir(full_path, 0755); // Unix-based directory creation
-#endif
-
-        if (result == 0 || errno == EEXIST)
-        {
-            return full_path;
-        }
-
-        free(full_path);
-        return nullptr;
-    }
-
-    free(full_path);
-    return nullptr;
+    return full_path; // Return the final computed path
 }
