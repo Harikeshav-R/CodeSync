@@ -259,7 +259,7 @@ Repository* repo_find(const char* path, const bool required)
     if (stat(codesync_dir, &stat_buf) == 0 && S_ISDIR(stat_buf.st_mode))
     {
         free(codesync_dir);
-        Repository* repository = nullptr;
+        Repository* repository = malloc(sizeof(Repository));
         repository_init(repository, resolved_path, false);
         free(resolved_path);
         return repository;
