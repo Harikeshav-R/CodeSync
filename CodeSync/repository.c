@@ -190,3 +190,35 @@ Repository* repository_create(char* path)
     return repository;
 }
 
+
+/**
+ * Writes the default configuration for the repository to the specified file.
+ * This includes the "core" section with settings such as `repository_format_version`, `filemode`, and `bare`.
+ *
+ * @param repository The repository object that holds the configuration.
+ * @param config_file The file where the configuration will be written.
+ */
+void repository_write_default_config(const Repository* repository, FILE* config_file)
+{
+    // Ensure the "core" section exists or create it if it doesn't
+    config_setting_t* core = config_lookup(repository->config, "core");
+    if (core == NULL)
+    {
+        // If "core" section does not exist, create it
+        core = config_setting_add(config_root_setting(repository->config), "core", CONFIG_TYPE_GROUP);
+    }
+
+    // Set key-value pairs under the "core" section
+    config_setting_t* repository_format_version =
+            config_setting_add(core, "repository_format_version", CONFIG_TYPE_INT);
+    config_setting_set_int(repository_format_version, 0);
+
+    config_setting_t* filemode = config_setting_add(core, "filemode", CONFIG_TYPE_BOOL);
+    config_setting_set_bool(filemode, false);
+
+    config_setting_t* bare = config_setting_add(core, "bare", CONFIG_TYPE_BOOL);
+    config_setting_set_bool(bare, false);
+
+    // Write the configuration to a file
+    config_write(repository->config, config_file);
+}
