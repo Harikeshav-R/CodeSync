@@ -172,3 +172,24 @@ static char* utils_repo_dir_va(const Repository* repository, const bool mkdir_fl
     return nullptr;
 }
 
+
+/**
+ * Compute the repository directory path with variable arguments and create missing directories if requested.
+ *
+ * @param repository The repository structure.
+ * @param mkdir_flag If true, missing directories will be created.
+ * @param count The number of path components.
+ * @param ... The variable arguments containing path components.
+ * @return A newly allocated string containing the directory path, or NULL if there is an error.
+ */
+char* utils_repo_dir(const Repository* repository, const bool mkdir_flag, const int count, ...)
+{
+    va_list args;
+    va_start(args, count);
+
+    // Call helper function with the arguments to compute the directory
+    char* result = utils_repo_dir_va(repository, mkdir_flag, count, args);
+
+    va_end(args);
+    return result; // Return the computed directory path
+}
