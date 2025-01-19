@@ -24,7 +24,7 @@ target_link_libraries(CodeSync PRIVATE ${LIBCONFIG_LIBRARY})
 # Enable AddressSanitizer and LeakSanitizer only in Debug mode
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Enabling AddressSanitizer and LeakSanitizer for Debug build")
-    set(SANITIZER_FLAGS "-fsanitize=leak -fno-omit-frame-pointer -g")
+    set(SANITIZER_FLAGS "-fsanitize=address -fsanitize=leak -fno-omit-frame-pointer -g")
     target_compile_options(CodeSync PRIVATE -fsanitize=leak -fno-omit-frame-pointer -g)
     target_link_options(CodeSync PRIVATE -fsanitize=leak -fno-omit-frame-pointer -g)
 endif()
