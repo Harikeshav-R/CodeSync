@@ -122,3 +122,53 @@ char* utils_repo_path(const Repository* repository, const int count, va_list arg
 
     return full_path; // Return the final computed path
 }
+
+
+/**
+ * Compute the repository directory path and create missing directories if requested.
+ *
+ * @param repository The repository structure.
+ * @param mkdir_flag If true, missing directories will be created.
+ * @param count The number of path components.
+ * @param args The variable arguments containing path components.
+ * @return A newly allocated string containing the directory path, or NULL if there is an error.
+ */
+static char* utils_repo_dir_va(const Repository* repository, const bool mkdir_flag, const int count, va_list args)
+{
+    // Generate the full path by calling utils_repo_path
+    char* full_path = utils_repo_path(repository, count, args);
+    if (!full_path)
+    {
+        return nullptr; // Return NULL if path creation failed
+    }
+
+    struct stat stat_buf;
+    // Check if the path exists and is a directory
+    if (stat(full_path, &stat_buf) == 0)
+    {
+        if (S_ISDIR(stat_buf.st_mode))
+        {
+            return full_path; // Directory exists, return path
+        }
+
+        free(full_path); // Path exists but is not a directory
+        return nullptr;
+    }
+
+    // If directory doesn't exist and mkdir_flag is set, try to create it
+    if (mkdir_flag)
+    {
+        const int result = utils_make_dirs(full_path);
+        if (result == 0 || errno == EEXIST)
+        {
+            return full_path; // Directory created or already exists
+        }
+
+        free(full_path); // Failed to create directory
+        return nullptr;
+    }
+
+    free(full_path); // Directory doesn't exist, return NULL
+    return nullptr;
+}
+
