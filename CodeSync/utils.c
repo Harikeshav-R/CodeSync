@@ -193,3 +193,40 @@ char* utils_repo_dir(const Repository* repository, const bool mkdir_flag, const 
     va_end(args);
     return result; // Return the computed directory path
 }
+
+
+
+/**
+ * Compute the repository file path and create any required directories if requested.
+ *
+ * @param repository The repository structure.
+ * @param mkdir_flag If true, missing directories will be created.
+ * @param count The number of path components.
+ * @param ... The variable arguments containing path components.
+ * @return A newly allocated string containing the file path, or NULL if there is an error.
+ */
+char* utils_repo_file(const Repository* repository, const bool mkdir_flag, const int count, ...)
+{
+    va_list args;
+    va_start(args, count);
+
+    va_list args_copy;
+    va_copy(args_copy, args); // Create a copy of args for reuse
+
+    // Get the directory part of the path
+    char* dir = utils_repo_dir_va(repository, mkdir_flag, count - 1, args);
+    if (!dir)
+    {
+        va_end(args);
+        va_end(args_copy);
+        return nullptr; // Return NULL if directory creation failed
+    }
+
+    // Get the full file path
+    char* file_path = utils_repo_path(repository, count, args_copy);
+    va_end(args);
+    va_end(args_copy);
+
+    free(dir); // Free directory path as it is no longer needed
+    return file_path; // Return the final file path
+}
