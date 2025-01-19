@@ -19,11 +19,10 @@
  * @param path The base path of the repository.
  * @param force Flag indicating whether to force initialization even if some conditions fail.
  */
-void repository_init(Repository* repository, char* path, const bool force)
+void repository_init(Repository* repository, const char* path, const bool force)
 {
     // Get the path to the .codesync directory by appending it to the base path
     char* codesync_directory = utils_join_paths(path, ".codesync");
-    char* config_file_path = nullptr;
 
     // Check if the directory could be resolved
     if (!codesync_directory)
@@ -34,18 +33,21 @@ void repository_init(Repository* repository, char* path, const bool force)
     }
 
     // Initialize the string fields in repository
-    repository->worktree = path; // Set the worktree path
-    repository->codesync_directory = codesync_directory; // Set the codesync directory path
+    repository->worktree = malloc(strlen(path) + 1); // Set the worktree path
+    strcpy(repository->worktree, path);
+    repository->worktree[strlen(path)] = '\0';
+
+    repository->codesync_directory = malloc(strlen(codesync_directory) + 1); // Set the codesync directory path
+    strcpy(repository->codesync_directory, codesync_directory);
+    repository->codesync_directory[strlen(codesync_directory)] = '\0';
+
+    if (codesync_directory != nullptr)
+    {
+        free(codesync_directory);
+    }
 
     // Allocate memory for the repository's config object
     repository->config = malloc(sizeof(config_t));
-    if (!repository->config)
-    {
-        // If memory allocation fails, print error and free resources
-        fprintf(stderr, "Could not allocate memory for repository->config\n");
-        free(codesync_directory);
-        return;
-    }
     config_init(repository->config); // Initialize the config object
 
     // Check if the codesync directory exists (unless force flag is set)
@@ -53,11 +55,12 @@ void repository_init(Repository* repository, char* path, const bool force)
     {
         // If directory doesn't exist and force is not set, report error
         fprintf(stderr, "Not a CodeSync Repository!\n");
-        goto cleanup; // Go to cleanup
+        repository_free(&repository);
+        return;
     }
 
     // Resolve the path to the config file
-    config_file_path = utils_repo_file(repository, false, 1, "config");
+    char* config_file_path = utils_repo_file(repository, false, 1, "config");
 
     // Check if the config file exists and attempt to read it
     if (config_file_path && utils_path_exists(config_file_path))
@@ -66,14 +69,29 @@ void repository_init(Repository* repository, char* path, const bool force)
         {
             // If reading the config file fails, report error
             fprintf(stderr, "Error reading config file: %s\n", config_error_text(repository->config));
-            goto cleanup; // Go to cleanup
+            repository_free(&repository);
+            if (config_file_path != nullptr)
+            {
+                free(config_file_path);
+            }
+            return;
         }
     }
     else if (!force)
     {
         // If the config file is missing and force is not set, report error
         fprintf(stderr, "Configuration file missing!\n");
-        goto cleanup; // Go to cleanup
+        repository_free(&repository);
+        if (config_file_path != nullptr)
+        {
+            free(config_file_path);
+        }
+        return;
+    }
+
+    if (config_file_path != nullptr)
+    {
+        free(config_file_path);
     }
 
     // If force is not set, check for repository version compatibility
@@ -86,20 +104,10 @@ void repository_init(Repository* repository, char* path, const bool force)
             {
                 // If the version is not supported, report error
                 fprintf(stderr, "Unsupported repository_format_version: %d!\n", version);
-                goto cleanup; // Go to cleanup
+                repository_free(&repository);
             }
         }
     }
-
-    // All operations are successful, no need for cleanup
-    return;
-
-cleanup:
-    // Free resources in case of an error
-    free(config_file_path);
-    free(codesync_directory);
-    config_destroy(repository->config);
-    free(repository->config);
 }
 
 
@@ -122,7 +130,7 @@ Repository* repository_create(char* path)
         if (!(utils_directory_exists(repository->worktree)))
         {
             fprintf(stderr, "%s is not a directory!\n", path);
-            free(repository);
+            repository_free(&repository);
             return nullptr; // Return NULL if not a directory
         }
 
@@ -131,7 +139,7 @@ Repository* repository_create(char* path)
                 repository->codesync_directory))
         {
             fprintf(stderr, "%s is not empty!\n", path);
-            free(repository);
+            repository_free(&repository);
             return nullptr; // Return NULL if not empty
         }
     }
@@ -142,7 +150,7 @@ Repository* repository_create(char* path)
         if (utils_make_dirs(repository->worktree) != 0)
         {
             fprintf(stderr, "Could not make repository directory!\n");
-            free(repository);
+            repository_free(&repository);
             return nullptr; // Return NULL if directory creation fails
         }
     }
@@ -158,7 +166,7 @@ Repository* repository_create(char* path)
     if (!description_file)
     {
         fprintf(stderr, "Could not open description file for writing!\n");
-        free(repository);
+        repository_free(&repository);
         return nullptr; // Return NULL if description file can't be opened
     }
 
@@ -170,7 +178,7 @@ Repository* repository_create(char* path)
     if (!head_file)
     {
         fprintf(stderr, "Could not open HEAD file for writing!\n");
-        free(repository);
+        repository_free(&repository);
         return nullptr; // Return NULL if HEAD file can't be opened
     }
 
@@ -231,65 +239,77 @@ void repository_write_default_config(const Repository* repository, FILE* config_
  * or any of its parent directories.
  *
  * @param path The starting directory to search for the repository.
- * @param required If true, the function will raise an error if no repository is found.
+ * @param required If true, the function will terminate if no repository is found.
  * @return A pointer to the Repository structure or nullptr if no repository is found and `required` is false.
  */
-Repository* repo_find(const char* path, const bool required)
+Repository* repository_find(const char* path, const bool required)
 {
-    char* resolved_path = realpath(path, nullptr); // Dynamically allocate the resolved path
-    if (resolved_path == NULL)
+    // Resolve the absolute path using utils_path_exists
+    if (!utils_path_exists(path))
     {
-        perror("realpath");
+        fprintf(stderr, "Path does not exist: %s\n", path);
+        if (required)
+        {
+            exit(EXIT_FAILURE);
+        }
         return nullptr;
     }
 
-    // Construct the ".codesync" path
-    const size_t codesync_dir_length = strlen(resolved_path) + strlen("/.codesync") + 1;
-    char* codesync_dir = malloc(codesync_dir_length);
+    // Join the current path with ".codesync"
+    char* codesync_dir = utils_join_paths(path, ".codesync");
     if (codesync_dir == NULL)
     {
-        perror("malloc");
-        free(resolved_path);
+        fprintf(stderr, "Failed to allocate memory for path.\n");
+        if (required)
+        {
+            exit(EXIT_FAILURE);
+        }
         return nullptr;
     }
-    snprintf(codesync_dir, codesync_dir_length, "%s/.codesync", resolved_path);
 
-    // Check if the ".codesync" directory exists
-    struct stat stat_buf;
-    if (stat(codesync_dir, &stat_buf) == 0 && S_ISDIR(stat_buf.st_mode))
+    // Check if ".codesync" exists and is a directory
+    if (utils_directory_exists(codesync_dir))
     {
         free(codesync_dir);
         Repository* repository = malloc(sizeof(Repository));
-        repository_init(repository, resolved_path, false);
-        free(resolved_path);
+        if (repository == NULL)
+        {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        repository_init(repository, path, false);
         return repository;
     }
     free(codesync_dir);
 
     // Move to the parent directory
-    char* parent = malloc(strlen(resolved_path) + strlen("/..") + 1);
+    char* parent = utils_join_paths(path, "..");
     if (parent == NULL)
     {
-        perror("malloc");
-        free(resolved_path);
+        fprintf(stderr, "Failed to allocate memory for parent path.\n");
+        if (required)
+        {
+            exit(EXIT_FAILURE);
+        }
         return nullptr;
     }
-    snprintf(parent, strlen(resolved_path) + strlen("/..") + 1, "%s/..", resolved_path);
-    free(resolved_path);
 
-    // Resolve the parent directory path
-    char* parent_resolved = realpath(parent, NULL);
-    free(parent);
-    if (parent_resolved == NULL)
+    // Resolve the parent directory to ensure correctness
+    if (!utils_path_exists(parent))
     {
-        perror("realpath");
+        free(parent);
+        if (required)
+        {
+            fprintf(stderr, "No CodeSync directory found.\n");
+            exit(EXIT_FAILURE);
+        }
         return nullptr;
     }
 
     // Check if we are at the root directory
-    if (strcmp(parent_resolved, resolved_path) == 0)
+    if (strcmp(parent, path) == 0)
     {
-        free(parent_resolved);
+        free(parent);
         if (required)
         {
             fprintf(stderr, "No CodeSync directory found.\n");
@@ -299,7 +319,7 @@ Repository* repo_find(const char* path, const bool required)
     }
 
     // Recursive call to search in the parent directory
-    Repository* repo = repo_find(parent_resolved, required);
-    free(parent_resolved);
+    Repository* repo = repository_find(parent, required);
+    free(parent);
     return repo;
 }
