@@ -29,7 +29,7 @@ void repository_init(Repository* repository, char* path, const bool force)
     if (!codesync_directory)
     {
         // Print error if directory resolution fails
-        fprintf(stderr, "Codesync directory not found!\n");
+        fprintf(stderr, "CodeSync directory not found!\n");
         return;
     }
 
@@ -292,7 +292,7 @@ Repository* repo_find(const char* path, const bool required)
         free(parent_resolved);
         if (required)
         {
-            fprintf(stderr, "No codesync directory found.\n");
+            fprintf(stderr, "No CodeSync directory found.\n");
             exit(EXIT_FAILURE);
         }
         return nullptr;
