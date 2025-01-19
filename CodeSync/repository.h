@@ -49,4 +49,16 @@ Repository* repository_create(char* path);
  */
 void repository_write_default_config(const Repository* repository, FILE* config_file);
 
+
+/**
+ * Finds a CodeSync repository by searching for a ".codesync" directory in the given path
+ * or any of its parent directories.
+ *
+ * @param path The starting directory to search for the repository.
+ * @param required If true, the function will raise an error if no repository is found.
+ * @return A pointer to the Repository structure or nullptr if no repository is found and `required` is false.
+ */
+Repository* repo_find(const char* path, bool required);
+
+
 #endif //REPOSITORY_H

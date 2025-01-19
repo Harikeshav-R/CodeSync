@@ -6,6 +6,8 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 
 #include "utils.h"
 
@@ -221,4 +223,83 @@ void repository_write_default_config(const Repository* repository, FILE* config_
 
     // Write the configuration to a file
     config_write(repository->config, config_file);
+}
+
+
+/**
+ * Finds a CodeSync repository by searching for a ".codesync" directory in the given path
+ * or any of its parent directories.
+ *
+ * @param path The starting directory to search for the repository.
+ * @param required If true, the function will raise an error if no repository is found.
+ * @return A pointer to the Repository structure or nullptr if no repository is found and `required` is false.
+ */
+Repository* repo_find(const char* path, const bool required)
+{
+    char* resolved_path = realpath(path, nullptr); // Dynamically allocate the resolved path
+    if (resolved_path == NULL)
+    {
+        perror("realpath");
+        return nullptr;
+    }
+
+    // Construct the ".codesync" path
+    const size_t codesync_dir_length = strlen(resolved_path) + strlen("/.codesync") + 1;
+    char* codesync_dir = malloc(codesync_dir_length);
+    if (codesync_dir == NULL)
+    {
+        perror("malloc");
+        free(resolved_path);
+        return nullptr;
+    }
+    snprintf(codesync_dir, codesync_dir_length, "%s/.codesync", resolved_path);
+
+    // Check if the ".codesync" directory exists
+    struct stat stat_buf;
+    if (stat(codesync_dir, &stat_buf) == 0 && S_ISDIR(stat_buf.st_mode))
+    {
+        free(codesync_dir);
+        Repository* repository = nullptr;
+        repository_init(repository, resolved_path, false);
+        free(resolved_path);
+        return repository;
+    }
+    free(codesync_dir);
+
+    // Move to the parent directory
+    char* parent = malloc(strlen(resolved_path) + strlen("/..") + 1);
+    if (parent == NULL)
+    {
+        perror("malloc");
+        free(resolved_path);
+        return nullptr;
+    }
+    snprintf(parent, strlen(resolved_path) + strlen("/..") + 1, "%s/..", resolved_path);
+    free(resolved_path);
+
+    // Resolve the parent directory path
+    char* parent_resolved = realpath(parent, NULL);
+    free(parent);
+    if (parent_resolved == NULL)
+    {
+        perror("realpath");
+        return nullptr;
+    }
+
+    // Check if we are at the root directory
+    if (strcmp(parent_resolved, resolved_path) == 0)
+    {
+        free(parent_resolved);
+        if (required)
+        {
+            fprintf(stderr, "No codesync directory found.\n");
+            exit(EXIT_FAILURE);
+        }
+        return nullptr;
+    }
+
+    // Recursive call to search in the parent directory
+    Repository* repo = repo_find(parent_resolved, required);
+    free(parent_resolved);
+    return repo;
 }
