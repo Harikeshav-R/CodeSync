@@ -323,3 +323,35 @@ Repository* repository_find(const char* path, const bool required)
     free(parent);
     return repo;
 }
+
+
+void repository_free(Repository** repository_ptr)
+{
+    if (repository_ptr == nullptr || *repository_ptr == nullptr)
+    {
+        return;
+    }
+
+    Repository* repository = *repository_ptr;
+
+    if (repository->worktree != nullptr)
+    {
+        free(repository->worktree);
+    }
+
+    if (repository->codesync_directory != nullptr)
+    {
+        free(repository->codesync_directory);
+    }
+
+    if (repository->config != nullptr)
+    {
+        config_destroy(repository->config);
+        free(repository->config);
+    }
+
+    free(repository);
+
+    // Set the caller's pointer to NULL
+    *repository_ptr = nullptr;
+}

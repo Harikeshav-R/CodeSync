@@ -27,7 +27,7 @@ typedef struct Repository
  * @param path The base path to the repository.
  * @param force Flag indicating whether initialization should proceed even if some conditions fail.
  */
-void repository_init(Repository* repository, char* path, bool force);
+void repository_init(Repository* repository, const char* path, bool force);
 
 
 /**
@@ -58,7 +58,10 @@ void repository_write_default_config(const Repository* repository, FILE* config_
  * @param required If true, the function will raise an error if no repository is found.
  * @return A pointer to the Repository structure or nullptr if no repository is found and `required` is false.
  */
-Repository* repo_find(const char* path, bool required);
+Repository* repository_find(const char* path, bool required);
+
+
+void repository_free(Repository** repository);
 
 
 #endif //REPOSITORY_H
