@@ -57,8 +57,17 @@ int cmd_init(int argc, const char* argv[])
         return EXIT_FAILURE; // Return failure if no path is provided
     }
 
-    // Call the repository creation function with the provided path
-    repository_create(path);
+    if (repository_find(path, true) == nullptr)
+    {
+        printf("Failed to find repo, creating new!\n");
+        // Call the repository creation function with the provided path
+        Repository* repository = repository_create(path);
+        repository_free(&repository);
+    }
+    else
+    {
+        printf("Repository already exists!\n");
+    }
 
     // Return success as the repository was created
     return 0;
