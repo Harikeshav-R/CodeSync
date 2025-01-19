@@ -5,6 +5,18 @@
 #include "argparse.h"
 #include "commands.h"
 
+
+/**
+ * The usage string for the command-line tool.
+ *
+ * This provides a basic format for how the command-line tool should be used.
+ */
+static const char* const usages[] = {
+    "subcommands [options] [cmd] [args]",
+    nullptr,
+};
+
+
 /**
  * The structure to hold the commands and their corresponding functions.
  *
@@ -85,3 +97,5 @@ int main(int argc, const char* argv[])
     // Return 0 if no matching command is found
     return 0;
 }
+
+
