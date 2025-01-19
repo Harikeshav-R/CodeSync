@@ -99,3 +99,94 @@ cleanup:
     config_destroy(repository->config);
     free(repository->config);
 }
+
+
+/**
+ * Creates a new repository at the specified path and initializes it.
+ *
+ * @param path The path to the new repository.
+ * @return A pointer to the newly created repository, or NULL if creation fails.
+ */
+Repository* repository_create(char* path)
+{
+    // Allocate memory for the repository object
+    Repository* repository = malloc(sizeof(Repository));
+    repository_init(repository, path, true); // Initialize the repository
+
+    // Check if the worktree already exists
+    if (utils_path_exists(repository->worktree))
+    {
+        // Ensure the worktree is a directory
+        if (!(utils_directory_exists(repository->worktree)))
+        {
+            fprintf(stderr, "%s is not a directory!\n", path);
+            free(repository);
+            return nullptr; // Return NULL if not a directory
+        }
+
+        // Check if the codesync directory exists and is empty
+        if (!utils_path_exists(repository->codesync_directory) && !utils_is_directory_empty(
+                repository->codesync_directory))
+        {
+            fprintf(stderr, "%s is not empty!\n", path);
+            free(repository);
+            return nullptr; // Return NULL if not empty
+        }
+    }
+
+    else
+    {
+        // If the worktree doesn't exist, try creating the directory
+        if (utils_make_dirs(repository->worktree) != 0)
+        {
+            fprintf(stderr, "Could not make repository directory!\n");
+            free(repository);
+            return nullptr; // Return NULL if directory creation fails
+        }
+    }
+
+    // Assert that required directories for the repository are created
+    assert(utils_repo_dir(repository, true, 1, "branches") != nullptr);
+    assert(utils_repo_dir(repository, true, 1, "objects") != nullptr);
+    assert(utils_repo_dir(repository, true, 2, "refs", "tags") != nullptr);
+    assert(utils_repo_dir(repository, true, 2, "refs", "heads") != nullptr);
+
+    // Write the description file with default content
+    FILE* description_file = fopen(utils_repo_file(repository, false, 1, "description"), "w");
+    if (!description_file)
+    {
+        fprintf(stderr, "Could not open description file for writing!\n");
+        free(repository);
+        return nullptr; // Return NULL if description file can't be opened
+    }
+
+    fprintf(description_file, "Unnamed repository; edit this file 'description' to name the repository.\n");
+    fclose(description_file); // Close the description file
+
+    // Write the HEAD file with the initial reference to the master branch
+    FILE* head_file = fopen(utils_repo_file(repository, false, 1, "HEAD"), "w");
+    if (!head_file)
+    {
+        fprintf(stderr, "Could not open HEAD file for writing!\n");
+        free(repository);
+        return nullptr; // Return NULL if HEAD file can't be opened
+    }
+
+    fprintf(head_file, "ref: refs/heads/master\n");
+    fclose(head_file); // Close the HEAD file
+
+    // Write the config file with default values
+    FILE* config_file = fopen(utils_repo_file(repository, false, 1, "config"), "w");
+    if (!config_file)
+    {
+        fprintf(stderr, "Could not open config file for writing!\n");
+        free(repository);
+        return nullptr; // Return NULL if config file can't be opened
+    }
+    repository_write_default_config(repository, config_file); // Write the default config
+    fclose(config_file); // Close the config file
+
+    // Return the created repository
+    return repository;
+}
+
