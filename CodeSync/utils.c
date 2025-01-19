@@ -195,7 +195,6 @@ char* utils_repo_dir(const Repository* repository, const bool mkdir_flag, const 
 }
 
 
-
 /**
  * Compute the repository file path and create any required directories if requested.
  *
@@ -287,4 +286,85 @@ bool utils_is_directory_empty(const char* path)
     closedir(dir);
     return true; // Directory is empty
 #endif
+}
+
+
+/**
+ * Create directories along the specified path.
+ *
+ * @param path The path to create.
+ * @return 0 on success, -1 if an error occurred.
+ */
+int utils_make_dirs(const char* path)
+{
+    char temp_path[1024];
+    char* p = nullptr;
+
+    // Check if path is NULL or empty
+    if (path == NULL || strlen(path) == 0)
+    {
+        return -1; // Invalid path
+    }
+
+    // Create a copy of the path to manipulate
+    strncpy(temp_path, path, sizeof(temp_path));
+    temp_path[sizeof(temp_path) - 1] = '\0';
+
+    size_t len = strlen(temp_path);
+
+#ifdef _WIN32
+    // Windows specific: Create each directory in the path
+    if (temp_path[len - 1] == '\\') {
+        temp_path[len - 1] = '\0'; // Remove trailing backslash
+    }
+
+    // Iterate over path characters to create directories
+    for (p = temp_path + 1; *p; p++) {
+        if (*p == '\\') {
+            *p = '\0'; // Temporarily terminate the string to create directories
+            if (CreateDirectory(temp_path, NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS) {
+                perror("CreateDirectory");
+                return -1; // Failed to create directory
+            }
+            *p = '\\'; // Restore the backslash to continue
+        }
+    }
+
+    // Create the final directory
+    if (CreateDirectory(temp_path, NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS) {
+        perror("CreateDirectory");
+        return -1; // Failed to create the final directory
+    }
+
+#else
+    // POSIX (Linux/macOS) specific: Create each directory in the path
+    if (temp_path[len - 1] == '/')
+    {
+        temp_path[len - 1] = '\0'; // Remove trailing slash
+    }
+
+    for (p = temp_path + 1; *p; p++)
+    {
+        if (*p == '/')
+        {
+            *p = '\0'; // Temporarily terminate the string to create directories
+            if (mkdir(temp_path, S_IRWXU) != 0 && errno != EEXIST)
+            {
+                perror("mkdir");
+                return -1; // Failed to create directory
+            }
+            *p = '/'; // Restore the slash to continue
+        }
+    }
+
+    // Create the final directory
+    if (mkdir(temp_path, S_IRWXU) != 0 && errno != EEXIST)
+    {
+        perror("mkdir");
+        return -1; // Failed to create the final directory
+    }
+
+#endif
+
+    return 0; // Success
 }
