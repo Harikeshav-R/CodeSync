@@ -230,3 +230,61 @@ char* utils_repo_file(const Repository* repository, const bool mkdir_flag, const
     free(dir); // Free directory path as it is no longer needed
     return file_path; // Return the final file path
 }
+
+
+/**
+ * Check if a directory is empty.
+ *
+ * @param path The directory path to check.
+ * @return True if the directory is empty, false if it contains files, or -1 in case of an error.
+ */
+bool utils_is_directory_empty(const char* path)
+{
+#ifdef _WIN32
+    WIN32_FIND_DATA findFileData;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+
+    char search_path[MAX_PATH];
+    snprintf(search_path, sizeof(search_path), "%s\\*", path);
+
+    // Use FindFirstFile to search for files in the directory
+    hFind = FindFirstFile(search_path, &findFileData);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        perror("FindFirstFile");
+        return -1; // Error opening directory
+    }
+
+    do {
+        // Skip the "." and ".." entries
+        if (strcmp(findFileData.cFileName, ".") != 0 && strcmp(findFileData.cFileName, "..") != 0) {
+            FindClose(hFind);
+            return false; // Directory is not empty
+        }
+    } while (FindNextFile(hFind, &findFileData) != 0);
+
+    FindClose(hFind);
+    return true; // Directory is empty
+
+#else
+    DIR* dir = opendir(path);
+    if (!dir)
+    {
+        return -1; // Error opening directory
+    }
+
+    struct dirent* entry;
+    // Loop through directory entries
+    while ((entry = readdir(dir)) != NULL)
+    {
+        // Skip "." and ".." entries
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        {
+            closedir(dir);
+            return false; // Directory is not empty
+        }
+    }
+
+    closedir(dir);
+    return true; // Directory is empty
+#endif
+}
